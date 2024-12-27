@@ -1,8 +1,10 @@
 {
   "tasks": {
-    "dev": "deno run --watch main.ts"
+    "dev": "deno run --watch --allow-ffi -RENS main.ts"
   },
   "imports": {
-    "@std/assert": "jsr:@std/assert@1"
-  }
+    "@hono": "jsr:@hono/hono",
+  },
+  "nodeModulesDir":"auto",
+  "compilerOptions": {"types": []}
 }
