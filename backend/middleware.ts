@@ -12,6 +12,7 @@ import { User } from "./schemas.ts";
 
 import {
   JwtPayloadType,
+  LoginPayloadType,
   SignUpPayloadType,
   UserType,
 } from "./types.ts";
@@ -81,5 +82,63 @@ export const createUserIfNotExist = async (
 
   setCookie(c, "jwt", token);
 
+  return next();
+};
+
+/**
+ * Middleware that expects given payload to match a registered User.
+ * 
+ * Issues fresh JWT cookie if successful.
+ *
+ * @example
+ * ```
+ * app.post("/login",...,checkCredentials,(c:Context)=>{...})
+
+ * ```
+ */
+export const checkCredentials = async (
+  c: Context,
+  next: () => Promise<void>
+) => {
+  const { username, password }: LoginPayloadType = await c.req.json();
+
+  // CHECK IF USER EXISTS
+  const user: UserType | null | undefined = await User.findOne({ username });
+  if (!user) return c.json({ message: "Username or password incorrect" }, 401);
+
+  // GET HASHED PASSWORD FROM TOKEN
+  const token = user.token;
+  const secret = Deno.env.get("JWT_SECRET");
+
+  if (!secret) return c.json({ message: "Token secret missing" }, 500);
+
+  let hashedPassword: string;
+  try {
+    const decodedJwt = jwt.verify(token, secret) as JwtPayloadType;
+    hashedPassword = decodedJwt.password;
+  } catch {
+    return c.json({ message: "Invalid token" }, 403);
+  }
+
+  // CHECK IF PASSWORDS MATCH
+  const validPassword = await bcrypt.compare(password, hashedPassword);
+  if (!validPassword)
+    return c.json({ message: "Username or password incorrect" }, 401);
+
+  // SIGN FRESH TOKEN (SINCE FRESH LOGIN, REQUIRES NEW EXPIRY TIME)
+  const expiresIn = Deno.env.get("JWT_EXPIRES_IN");
+  const newPassword = await hashPassword(password);
+  const newToken = jwt.sign({ username, password: newPassword }, secret, {
+    expiresIn,
+  });
+
+  // UPDATE DB & SET COOKIE
+  try {
+    await User.findOneAndUpdate({ username }, { token: newToken }).exec();
+  } catch {
+    return c.json({ message: "Internal failure" }, 500);
+  }
+
+  setCookie(c, "jwt", newToken);
   return next();
 };
