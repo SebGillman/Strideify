@@ -1,4 +1,5 @@
 import { Hono } from "@hono";
+import { cors } from "@hono/cors";
 import type { Context } from "@hono";
 
 import "@std/dotenv/load";
@@ -11,6 +12,8 @@ import {
 
 function main(): void {
   const app = new Hono();
+
+  app.use("*", cors());
 
   app.post("/signup", dbConnect, createUserIfNotExist, (c: Context) =>
     c.json({ message: "success" })

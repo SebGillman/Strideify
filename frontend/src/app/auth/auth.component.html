@@ -1,0 +1,10 @@
+<div class="auth-container">
+  <h1>Auth Module</h1>
+
+  <label for="username">Username: </label>
+  <input class="auth-input" id="username" [(ngModel)]="username" type="text"/>
+  <label for="password">Password: </label>
+  <input class="auth-input" id="password" [(ngModel)]="password" type="text"/>
+
+  <button class="auth-login-button" id="login" (click)="login()">Login</button>
+</div>
