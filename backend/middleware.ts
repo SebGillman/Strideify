@@ -17,6 +17,61 @@ import {
   UserType,
 } from "./types.ts";
 import { hashPassword } from "./utils.ts";
+
+/**
+ * Middleware that checks validity of JWT and refreshes JWT if expired.
+ *
+ * @example
+ * ```
+ * app.get("*",...,authenticateToken,(c:Context)=>{...})
+ * ```
+ */
+export const authenticateToken = async (
+  c: Context,
+  next: () => Promise<void>
+) => {
+  const secret = Deno.env.get("JWT_SECRET");
+  if (!secret) return c.json({ message: "Token secret missing" }, 500);
+
+  const token = getCookie(c, "jwt");
+  if (!token) return c.json({ message: "Authentication required" }, 401);
+
+  try {
+    const decoded = jwt.verify(token, secret) as JwtPayloadType;
+    const { exp } = decoded;
+    const currentTime = new Date().getTime();
+
+    if (exp == undefined || exp < currentTime) {
+      await refreshJwt(c, decoded);
+    }
+    return next();
+  } catch (err) {
+    console.log(err);
+    return c.json({ message: "Invalid token" }, 403);
+  }
+};
+
+/**
+ * Middleware that refreshes JWT by re-signing with fresh expiry.
+ *
+ * @example
+ * ```
+ * const payload = {...}
+ * await refreshJwt(c,payload)
+ * ```
+ */
+export const refreshJwt = async (c: Context, payload: JwtPayloadType) => {
+  const secret = Deno.env.get("JWT_SECRET");
+  if (!secret) return c.json({ message: "Token secret missing" }, 500);
+
+  payload = { username: payload.username, password: payload.password };
+  const expiresIn = Deno.env.get("JWT_EXPIRES_IN");
+  const token = jwt.sign(payload, secret, { expiresIn });
+
+  setCookie(c, "jwt", token);
+  await User.findOneAndUpdate({ username: payload.username }, { token }).exec();
+};
+
 /**
  * Middleware that opens MongoDB Atlas connection using mongoose ODM.
  *

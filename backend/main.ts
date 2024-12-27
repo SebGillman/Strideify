@@ -3,6 +3,7 @@ import type { Context } from "@hono";
 
 import "@std/dotenv/load";
 import {
+  authenticateToken,
   checkCredentials,
   createUserIfNotExist,
   dbConnect,
@@ -18,6 +19,11 @@ function main(): void {
   app.post("/login", dbConnect, checkCredentials, (c: Context) =>
     c.json({ message: "success" })
   );
+
+  app.get("/check-logged-in", dbConnect, authenticateToken, (c: Context) => {
+    return c.json({ message: "success" });
+  });
+
   Deno.serve(app.fetch);
 }
 
